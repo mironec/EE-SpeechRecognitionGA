@@ -5,10 +5,6 @@ struct sample_mono16bit{
 	signed short int value;
 };
 
-struct sample{
-	char* vals;
-};
-
 class Wave {
 	unsigned long int samplesNumber;	//number of samples, should be subchunk2Length/blockAlign
 
@@ -26,7 +22,7 @@ class Wave {
 
 	char subchunk2ID[5];				//should be "data"
 	unsigned long int subchunk2Length;	//should be fileSize-44 LE, the length of the data in bytes (also numOfSamples*numOfChannels*bitsPerSample/8)
-	sample* data;						//actual data for the samples
+	unsigned char* data;				//actual data for the samples
 	sample_mono16bit* dataUseful;		//used in this program
 public:
 	Wave();
