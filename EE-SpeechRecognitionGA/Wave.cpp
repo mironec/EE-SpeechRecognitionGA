@@ -1,6 +1,3 @@
-#include <fstream>
-#include <cmath>
-#include <cstdlib>
 #include "Wave.h"
 using namespace std;
 
@@ -115,7 +112,7 @@ void Wave::convertToMono16Bit(){
 			if(val2>32767){									//negative, because two's complement
 				val2 = val2-65536;
 			}
-			dataUseful[i].value=(signed short int)(val1);
+			dataUseful[i].value=(signed short int)(val1/2+val2/2);
 		}
 		else if(numOfChannels==1){
 			unsigned char* sample = &data[i*blockAlign];
@@ -209,4 +206,8 @@ void Wave::normalizeAmplitude(){
 				(float)(dataUseful[i].value)*(totalMax/(float)max)
 				);
 	}
+}
+
+signed short int Wave::val(int x){
+	return dataUseful[x].value;
 }

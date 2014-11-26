@@ -1,5 +1,9 @@
-#ifndef WAVE_H
-#define WAVE_H
+#ifndef WAVE_H_
+#define WAVE_H_
+
+#include <fstream>
+#include <cmath>
+#include <cstdlib>
 
 struct sample_mono16bit{
 	signed short int value;
@@ -32,6 +36,7 @@ public:
 	void writeFileMono16Bit(std::string name);
 	void convertToMono16Bit();
 	void normalizeAmplitude();
+	signed short int val(int x);
 };
 
 #endif

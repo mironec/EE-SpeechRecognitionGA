@@ -1,30 +1,49 @@
 #include <iostream>
 #include <fstream>
+#include <vector>
+#include <ctime>
 #include "Wave.h"
+#include "Evolve.h"
 using namespace std;
 
+Wave* waves;
+vector<string> fileNames;
+vector<string> words;
+int len = 0;
+
 int main(int argc, char **argv) {
-	Wave wave;
-	wave.readFile("file.wav");
+	ifstream config ("config.txt");
 
-	wave.convertToMono16Bit();
-	short int* data = wave.getData();
-	for(unsigned int i=0;i<wave.getSamplesNumber();i+=100){
-		cout << data[i] << " ";
-		if(i%10000==0)
-			cout << endl << i << ": ";
+	while(config.good()){
+		string s;
+		getline(config,s);
+		string fileName;
+		string word;
+		int pos = s.find(';');
+		if(pos==-1){break;}
+		fileName=s.substr(0,pos);
+		word=s.substr(pos+1);
+		fileNames.push_back(fileName);
+		words.push_back(word);
+		len++;
 	}
-	wave.normalizeAmplitude();
-	delete[] data;
-	data = wave.getData();
-	cout << endl << endl << endl;
-	for(unsigned int i=0;i<wave.getSamplesNumber();i+=100){
-		cout << data[i] << " ";
-		if(i%10000==0)
-			cout << endl << i << ": ";
+	config.close();
+	waves = new Wave[len];
+	for(int i=0;i<len;i++){
+		waves[i].readFile(fileNames[i]);
+		waves[i].convertToMono16Bit();
 	}
 
-	wave.writeFileMono16Bit("out.wav");
+	srand(time(0));
+
+	Evolve e;
+	e.setWaves(waves);
+	e.setWords(&words[0]);
+	e.setDataSize(len);
+	e.readFile("popGen40000");
+	e.evolvePop(10000);
+	cout << e.testFunc(e.bestFunc());
+	e.writeFile("popGen50000");
 
 	return 0;
 }
