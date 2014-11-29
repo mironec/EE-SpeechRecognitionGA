@@ -209,5 +209,6 @@ void Wave::normalizeAmplitude(){
 }
 
 signed short int Wave::val(int x){
+	if(x>=samplesNumber) return 0;
 	return dataUseful[x].value;
 }

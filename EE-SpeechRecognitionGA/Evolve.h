@@ -12,20 +12,9 @@ struct RECT{
 	signed short int y2;
 };
 
-struct PATTERN{
-	RECT* rects;
-	unsigned long int numRects;
-};
-
-struct POSSIBLE_FUNC{
-	RECT* rects;
-	unsigned long int numRects;
-};
-
 struct FUNC{
-	POSSIBLE_FUNC* possibleFuncs;
-	RECT* identifiers;
-	unsigned long int numPossible;
+	RECT* rects;
+	unsigned long int numRects;
 	char* word;
 	int wordLen;
 	float cost;
@@ -48,14 +37,13 @@ public:
 	void setDataSize(unsigned long int numData);
 	void setFuncWord(std::string word);
 	FUNC* bestFunc();
-	float testFunc(FUNC* a);
-	float testFunc(FUNC* a, Wave* sound, std::string word);
-	float matchPossibleFunc(POSSIBLE_FUNC* func, Wave* sound);
+	float matchFunc(FUNC* func, Wave* sound);
 	FUNC offspring(FUNC* f);
 	FUNC* pop(int x);
 	float matchRect(RECT* r, Wave* sound);
 	void readFile(std::string filename);
 	void writeFile(std::string filename);
+	void writeFileBestAlg(std::string filename);
 };
 
 #endif

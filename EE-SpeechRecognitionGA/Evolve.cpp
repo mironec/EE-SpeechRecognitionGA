@@ -17,6 +17,7 @@ unsigned short int twoComplement(signed short int x){
 unsigned long int CHANCE_NEW_POSSIBLE_FUNC = 100;
 unsigned long int CHANCE_DEL_POSSIBLE_FUNC = 100;
 unsigned long int CHANCE_NEW_RECT = 25;
+unsigned long int CHANCE_DEL_RECT = RAND_MAX;
 unsigned long int CHANCE_RECT_CHANGE = 25;
 unsigned long int CHANCE_ID_CHANGE = 100;
 
@@ -30,21 +31,46 @@ Evolve::Evolve(){
 
 void Evolve::evolvePop(int gens){
 	if(population == NULL) return;
-	//float* costs = new float[numPopulation];
+	float* costs = new float[numPopulation];
+	float totalCost;
 	float maxCost;
 	float minCost;
-	int maxF;
-	int minF;
 	for(int g=0;g<gens;g++){
 		maxCost=-1;
 		minCost=2;
+		totalCost=0;
 		for(unsigned int f=0;f<numPopulation;f++){
-			population[f].cost=costFunction(&population[f]);
-			if(population[f].cost>maxCost){maxCost=population[f].cost; maxF=f;}
-			else if(population[f].cost<minCost){minCost=population[f].cost; minF=f;}
+			if(population[f].cost==-1)
+				population[f].cost=costFunction(&population[f]);
+			if(population[f].cost>maxCost){maxCost=population[f].cost;}
+			if(population[f].cost<minCost){minCost=population[f].cost;}
 		}
 
-		population[maxF] = offspring(&population[minF]);
+		for(unsigned int f=0;f<numPopulation;f++){
+			costs[f]=population[f].cost-minCost;
+			totalCost+=costs[f];
+		}
+
+		int delId;
+		if(totalCost==0){delId=0;}
+		else{
+			float del = ((float)rand()/(RAND_MAX))*totalCost;
+			float aggCost = 0;
+			for(unsigned int f=0;f<numPopulation;f++){
+				aggCost += costs[f];
+				if(aggCost>=del){delId=f; del=totalCost+1;}
+			}
+		}
+
+		float minNewCost = 2;
+		int minNewf;
+		FUNC* popNew = new FUNC[numPopulation];
+		for(unsigned int f=0;f<numPopulation;f++){
+			popNew[f]=offspring(&population[f]);
+			popNew[f].cost=costFunction(&popNew[f]);
+			if(popNew[f].cost<minNewCost){minNewCost=popNew[f].cost; minNewf=f;}
+		}
+		population[delId] = popNew[minNewf];
 	}
 }
 
@@ -53,106 +79,105 @@ void Evolve::setPopulation(int size, std::string word){
 	numPopulation=size;
 	for(int p=0;p<size;p++){
 		population[p].wordLen=word.length();
+		population[p].word=new char[population[p].wordLen+1];
 		for(int i=0;i<population[p].wordLen;i++){
 			population[p].word[i]=word.at(i);
 		}
-		population[p].numPossible=1;
-		population[p].identifiers=new RECT[1];
-		population[p].possibleFuncs=new POSSIBLE_FUNC[1];
-		population[p].identifiers[0].x1=0;
-		population[p].identifiers[0].x2=100;
-		population[p].identifiers[0].y1=-0x1FFF;
-		population[p].identifiers[0].y2=0x1FFF;
-		population[p].possibleFuncs[0].numRects=1;
-		population[p].possibleFuncs[0].rects=new RECT[1];
-		population[p].possibleFuncs[0].rects[0].x1=201;
-		population[p].possibleFuncs[0].rects[0].x2=400;
-		population[p].possibleFuncs[0].rects[0].y1=-0x1FFF;
-		population[p].possibleFuncs[0].rects[0].y2=0x1FFF;
+		population[p].word[population[p].wordLen]='\0';
+		population[p].numRects=1;
+		population[p].rects=new RECT[1];
+		population[p].rects[0].x1=201;
+		population[p].rects[0].x2=400;
+		population[p].rects[0].y1=-0x1FFF;
+		population[p].rects[0].y2=0x1FFF;
+		population[p].cost=-1;
 	}
 }
 
 FUNC Evolve::offspring(FUNC* f){
 	FUNC n;
 	n.wordLen=f->wordLen;
+	n.cost=-1;
 	n.word=new char[n.wordLen+1];
 	for(int i=0;i<n.wordLen;i++){
 		n.word[i]=f->word[i];
 	}
 	n.word[n.wordLen]='\0';
-	n.numPossible=f->numPossible;
-	if(rand()%CHANCE_NEW_POSSIBLE_FUNC==0){
 
+	n.numRects=f->numRects;
+	int remID = -1;
+	unsigned int posId = 0;
+	if(rand()%CHANCE_NEW_RECT==0){
+		int newID = rand()%n.numRects;
+		n.numRects++;
+		n.rects = new RECT[n.numRects];
+		if(rand()%2==0){
+			n.rects[n.numRects-1].x1=rand()%0xFFFF;
+			n.rects[n.numRects-1].y1=rand()%0xFFFF;
+			if(rand()%2==0){
+				n.rects[n.numRects-1].x2=rand()%0xFFFF;
+				n.rects[n.numRects-1].y2=rand()%0xFFFF;
+			}
+			else{
+				n.rects[n.numRects-1].x2=n.rects[n.numRects-1].x1+rand()%0xFF;
+				n.rects[n.numRects-1].y2=n.rects[n.numRects-1].y2+rand()%0xFF;
+			}
+		}
+		else{
+			n.rects[n.numRects-1].x1=f->rects[newID].x1;
+			n.rects[n.numRects-1].x2=f->rects[newID].x2;
+			n.rects[n.numRects-1].y1=f->rects[newID].y1;
+			n.rects[n.numRects-1].y2=f->rects[newID].y2;
+		}
 	}
-	if(f->numPossible>1 && rand()%CHANCE_DEL_POSSIBLE_FUNC==0){
-
+	else if(n.numRects>1&&rand()%CHANCE_DEL_RECT==0){
+		remID = rand()%n.numRects;
+		n.numRects--;
+		n.rects = new RECT[n.numRects+1];
 	}
-	n.identifiers=new RECT[n.numPossible];
-	n.possibleFuncs=new POSSIBLE_FUNC[n.numPossible];
-	for(unsigned int p=0;p<f->numPossible;p++){
+	else{
+		n.rects = new RECT[n.numRects];
+	}
+	for(unsigned int r=0;r<f->numRects;r++){
+		if((signed)r==remID) continue;
 		for(int i=0;i<4;i++){
 			switch(i){
 			case 0:
-				n.identifiers[p].x1=f->identifiers[p].x1; break;
+				n.rects[posId].x1=f->rects[r].x1; break;
 			case 1:
-				n.identifiers[p].x2=f->identifiers[p].x2; break;
+				n.rects[posId].x2=f->rects[r].x2; break;
 			case 2:
-				n.identifiers[p].y1=f->identifiers[p].y1; break;
+				n.rects[posId].y1=f->rects[r].y1; break;
 			case 3:
-				n.identifiers[p].y2=f->identifiers[p].y2; break;
+				n.rects[posId].y2=f->rects[r].y2; break;
 			}
-			if(rand()%CHANCE_ID_CHANGE==0){
-				switch(i){
-				case 0:
-					n.identifiers[p].x1+=0xFF/2-rand()%0xFF; break;
-				case 1:
-					n.identifiers[p].x2+=0xFF/2-rand()%0xFF; break;
-				case 2:
-					n.identifiers[p].y1+=0xFF/2-rand()%0xFF; break;
-				case 3:
-					n.identifiers[p].y2+=0xFF/2-rand()%0xFF; break;
-				}
-			}
-		}
-
-		n.possibleFuncs[p].numRects=f->possibleFuncs[p].numRects;
-		if(rand()%CHANCE_NEW_RECT==0){
-			n.possibleFuncs[p].numRects++;
-			n.possibleFuncs[p].rects = new RECT[n.possibleFuncs[p].numRects];
-			n.possibleFuncs[p].rects[n.possibleFuncs[p].numRects-1].x1=f->possibleFuncs[p].rects[f->possibleFuncs[p].numRects-1].x1;
-			n.possibleFuncs[p].rects[n.possibleFuncs[p].numRects-1].x2=f->possibleFuncs[p].rects[f->possibleFuncs[p].numRects-1].x2;
-			n.possibleFuncs[p].rects[n.possibleFuncs[p].numRects-1].y1=f->possibleFuncs[p].rects[f->possibleFuncs[p].numRects-1].y1;
-			n.possibleFuncs[p].rects[n.possibleFuncs[p].numRects-1].y2=f->possibleFuncs[p].rects[f->possibleFuncs[p].numRects-1].y2;
-		}
-		else{
-			n.possibleFuncs[p].rects = new RECT[n.possibleFuncs[p].numRects];
-		}
-		for(unsigned int r=0;r<f->possibleFuncs[p].numRects;r++){
-			for(int i=0;i<4;i++){
-				switch(i){
-				case 0:
-					n.possibleFuncs[p].rects[r].x1=f->possibleFuncs[p].rects[r].x1; break;
-				case 1:
-					n.possibleFuncs[p].rects[r].x2=f->possibleFuncs[p].rects[r].x2; break;
-				case 2:
-					n.possibleFuncs[p].rects[r].y1=f->possibleFuncs[p].rects[r].y1; break;
-				case 3:
-					n.possibleFuncs[p].rects[r].y2=f->possibleFuncs[p].rects[r].y2; break;
-				}
-				if(rand()%CHANCE_RECT_CHANGE==0){
+			if(rand()%CHANCE_RECT_CHANGE==0){
+				if(rand()%2==0){
 					switch(i){
 					case 0:
-						n.possibleFuncs[p].rects[r].x1+=0xFF/2-rand()%0xFF; break;
+						n.rects[posId].x1=rand()%0xFFFF; break;
 					case 1:
-						n.possibleFuncs[p].rects[r].x2+=0xFF/2-rand()%0xFF; break;
+						n.rects[posId].x2=rand()%0xFFFF; break;
 					case 2:
-						n.possibleFuncs[p].rects[r].y1+=0xFF/2-rand()%0xFF; break;
+						n.rects[posId].y1=rand()%0xFFFF; break;
 					case 3:
-						n.possibleFuncs[p].rects[r].y2+=0xFF/2-rand()%0xFF; break;
+						n.rects[posId].y2=rand()%0xFFFF; break;
 					}
+				}
+				else{switch(i){
+				case 0:
+					n.rects[posId].x1+=0xFF/2-rand()%0xFF; break;
+				case 1:
+					n.rects[posId].x2+=0xFF/2-rand()%0xFF; break;
+				case 2:
+					n.rects[posId].y1+=0xFF/2-rand()%0xFF; break;
+				case 3:
+					n.rects[posId].y2+=0xFF/2-rand()%0xFF; break;
+				}
 				}
 			}
 		}
+		posId++;
 	}
 	return n;
 }
@@ -160,17 +185,19 @@ FUNC Evolve::offspring(FUNC* f){
 FUNC* Evolve::bestFunc(){
 	float minCost=2;
 	int minF;
-	for(int i=0;i<numPopulation;i++){
-		for(unsigned int f=0;f<numPopulation;f++){
-			population[f].cost=costFunction(&population[f]);
-			if(population[f].cost<minCost){minCost=population[f].cost; minF=f;}
-		}
+	for(unsigned int f=0;f<numPopulation;f++){
+		population[f].cost=costFunction(&population[f]);
+		if(population[f].cost<minCost){minCost=population[f].cost; minF=f;}
 	}
 	return &population[minF];
 }
 
 float Evolve::costFunction(FUNC* a){
-	return testFunc(a);
+	float ret = 0;
+	for(unsigned int i=0;i<numData;i++){
+		ret += std::abs(matchFunc(a,&sounds[i])-(words[i].compare(a->word)==0?1:0))/numData;
+	}
+	return ret;
 }
 
 void Evolve::setWaves(Wave* sounds){
@@ -185,27 +212,20 @@ void Evolve::setDataSize(unsigned long int numData){
 	this->numData = numData;
 }
 
-float Evolve::testFunc(FUNC* a){
-	float ret = 0;
-	for(unsigned int i=0;i<numData;i++){
-		ret += std::abs(testFunc(a,&sounds[i],words[i])-(words[i]==a->word?1:0))/numData;
-	}
-	return ret;
-}
-
-float Evolve::testFunc(FUNC* a, Wave* sound, std::string word){
-	float matchMax = -1;
-	int pMax = -1;
-	for(unsigned int p=0;p<a->numPossible;p++){
-		float match = matchRect(&(a->identifiers[pMax]),sound);
-		if(match>matchMax){matchMax=match; pMax=p;}
-	}
-	return matchPossibleFunc(&(a->possibleFuncs[pMax]),sound);
-}
-
-float Evolve::matchPossibleFunc(POSSIBLE_FUNC* func, Wave* sound){
+float Evolve::matchFunc(FUNC* func, Wave* sound){
 	float totalMatch = 0;
 	for(unsigned int r=0;r<func->numRects;r++){
+		if(func->rects[r].x1>=func->rects[r].x2){
+			short int mid = func->rects[r].x2;
+			func->rects[r].x2=func->rects[r].x1;
+			func->rects[r].x1=mid;
+		}
+		if(func->rects[r].y1>=func->rects[r].y2){
+			short int mid = func->rects[r].y2;
+			func->rects[r].y2=func->rects[r].y1;
+			func->rects[r].y1=mid;
+		}
+
 		totalMatch += matchRect(&(func->rects[r]),sound)/func->numRects;
 	}
 	return totalMatch;
@@ -214,6 +234,7 @@ float Evolve::matchPossibleFunc(POSSIBLE_FUNC* func, Wave* sound){
 float Evolve::matchRect(RECT* r, Wave* sound){
 	float totalMatch = 0;
 	for(int x=r->x1;x<r->x2;x++){
+		if(x<0) continue;
 		if(sound->val(x) >= r->y1 && sound->val(x) <= r->y2){
 			totalMatch+=1.0f/(r->x2-r->x1+1);
 		}
@@ -257,58 +278,31 @@ void Evolve::readFile(std::string filename){
 			population[o].word[i]=data[pos++];
 		}
 		population[o].word[wordLen]='\0';
-		long int poss = 0;
+		population[o].cost=-1;
+		long int rects = 0;
 		for(int i=0;i<4;i++){
-			poss=poss<<8;
-			poss+=data[pos++];
+			rects=rects<<8;
+			rects+=data[pos++];
 		}
-		population[o].numPossible = poss;
-		population[o].possibleFuncs = new POSSIBLE_FUNC[poss];
-		population[o].identifiers = new RECT[poss];
-		for(int p=0;p<poss;p++){
-			for(int r=0;r<4;r++){
+		population[o].numRects=rects;
+		population[o].rects=new RECT[rects];
+		for(int r=0;r<rects;r++){
+			for(int d=0;d<4;d++){
 				unsigned short int val = 0;
 				for(int i=0;i<2;i++){
 					val = val << 8;
 					val += data[pos++];
 				}
 				signed short int valu = twoComplement(val);
-				switch(r){
+				switch(d){
 				case 0:
-					population[o].identifiers[p].x1=valu; break;
+					population[o].rects[r].x1=valu; break;
 				case 1:
-					population[o].identifiers[p].x2=valu; break;
+					population[o].rects[r].x2=valu; break;
 				case 2:
-					population[o].identifiers[p].y1=valu; break;
+					population[o].rects[r].y1=valu; break;
 				case 3:
-					population[o].identifiers[p].y2=valu; break;
-				}
-			}
-			long int rects = 0;
-			for(int i=0;i<4;i++){
-				rects=rects<<8;
-				rects+=data[pos++];
-			}
-			population[o].possibleFuncs[p].numRects=rects;
-			population[o].possibleFuncs[p].rects=new RECT[rects];
-			for(int r=0;r<rects;r++){
-				for(int d=0;d<4;d++){
-					unsigned short int val = 0;
-					for(int i=0;i<2;i++){
-						val = val << 8;
-						val += data[pos++];
-					}
-					signed short int valu = twoComplement(val);
-					switch(d){
-					case 0:
-						population[o].possibleFuncs[p].rects[r].x1=valu; break;
-					case 1:
-						population[o].possibleFuncs[p].rects[r].x2=valu; break;
-					case 2:
-						population[o].possibleFuncs[p].rects[r].y1=valu; break;
-					case 3:
-						population[o].possibleFuncs[p].rects[r].y2=valu; break;
-					}
+					population[o].rects[r].y2=valu; break;
 				}
 			}
 		}
@@ -321,11 +315,9 @@ void Evolve::writeFile(std::string filename){
 	unsigned int len = 0;
 	len+=4;
 	for(unsigned int p=0;p<numPopulation;p++){
-		len+=8;
+		len+=4;
 		len+=population[p].wordLen;
-		for(unsigned int poss=0;poss<population[p].numPossible;poss++){
-			len+=12+8*population[p].possibleFuncs[poss].numRects;
-		}
+		len+=4+8*population[p].numRects;
 	}
 
 	unsigned char* data = new unsigned char[len];
@@ -343,49 +335,78 @@ void Evolve::writeFile(std::string filename){
 			data[pos++]=population[p].word[i];
 		}
 		for(int i=0;i<4;i++){
-			data[pos++]=(population[p].numPossible>>(24-i*8))&0xFF;
+			data[pos++]=(population[p].numRects>>(24-i*8))&0xFF;
 		}
-		for(unsigned int poss=0;poss<population[p].numPossible;poss++){
-			for(int r=0;r<4;r++){
+		for(unsigned int r=0;r<population[p].numRects;r++){
+			for(int d=0;d<4;d++){
 				signed short int val;
 				unsigned short int valu;
-				switch(r){
+				switch(d){
 				case 0:
-					val = population[p].identifiers[poss].x1; break;
+					val = population[p].rects[r].x1; break;
 				case 1:
-					val = population[p].identifiers[poss].x2; break;
+					val = population[p].rects[r].x2; break;
 				case 2:
-					val = population[p].identifiers[poss].y1; break;
+					val = population[p].rects[r].y1; break;
 				case 3:
-					val = population[p].identifiers[poss].y2; break;
+					val = population[p].rects[r].y2; break;
 				}
 				valu = twoComplement(val);
 				for(int i=0;i<2;i++){
 					data[pos++]=(valu>>(8-i*8))&0xFF;
 				}
 			}
-			for(int i=0;i<4;i++){
-				data[pos++]=(population[p].possibleFuncs[poss].numRects>>(24-i*8))&0xFF;
+		}
+	}
+
+	std::ofstream out(filename.c_str(), std::ios::binary | std::ios::out);
+	char* dat = (char*)data;
+	out.write(dat,len);
+	out.close();
+}
+
+void Evolve::writeFileBestAlg(std::string filename){
+	if(population == NULL) return;
+	FUNC* f = bestFunc();
+
+	unsigned int len = 0;
+	len+=8;
+	len+=f->wordLen;
+	len+=4+8*f->numRects;
+
+	unsigned char* data = new unsigned char[len];
+
+	int pos = 0;
+	for(int i=0;i<4;i++){
+		data[pos++]=(1>>(24-i*8))&0xFF;
+	}
+	int wlen = f->wordLen;
+	for(int i=0;i<4;i++){
+		data[pos++]=(wlen>>(24-i*8))&0xFF;
+	}
+	for(int i=0;i<wlen;i++){
+		data[pos++]=f->word[i];
+	}
+	for(int i=0;i<4;i++){
+		data[pos++]=(f->numRects>>(24-i*8))&0xFF;
+	}
+	for(unsigned int r=0;r<f->numRects;r++){
+		for(int d=0;d<4;d++){
+			signed short int val;
+			unsigned short int valu;
+			switch(d){
+			case 0:
+				val = f->rects[r].x1; break;
+			case 1:
+				val = f->rects[r].x2; break;
+			case 2:
+				val = f->rects[r].y1; break;
+			case 3:
+				val = f->rects[r].y2; break;
 			}
-			for(unsigned int r=0;r<population[p].possibleFuncs[poss].numRects;r++){
-				for(int d=0;d<4;d++){
-					signed short int val;
-					unsigned short int valu;
-					switch(d){
-					case 0:
-						val = population[p].possibleFuncs[poss].rects[r].x1; break;
-					case 1:
-						val = population[p].possibleFuncs[poss].rects[r].x2; break;
-					case 2:
-						val = population[p].possibleFuncs[poss].rects[r].y1; break;
-					case 3:
-						val = population[p].possibleFuncs[poss].rects[r].y2; break;
-					}
-					valu = twoComplement(val);
-					for(int i=0;i<2;i++){
-						data[pos++]=(valu>>(8-i*8))&0xFF;
-					}
-				}
+			valu = twoComplement(val);
+			for(int i=0;i<2;i++){
+				data[pos++]=(valu>>(8-i*8))&0xFF;
 			}
 		}
 	}
